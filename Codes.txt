@@ -1,0 +1,688 @@
+1. Hello World (Serial Version)
+#include <stdio.h>
+
+int main() {
+    int ID = 0;
+
+    printf("hello(%d) ", ID);
+    printf("world(%d)\n", ID);
+
+    return 0;
+}
+2. Hello World (Parallel Version)
+#include <stdio.h>
+#include <omp.h>
+
+int main() {
+
+#pragma omp parallel
+    {
+        int ID = omp_get_thread_num();
+
+        printf("hello(%d) ", ID);
+        printf("world(%d)\n", ID);
+    }
+
+    return 0;
+}
+Pi Computation Programs
+3. Pi Calculation (Serial Version)
+#include <stdio.h>
+
+static long num_steps = 100000;
+double step;
+
+int main() {
+    int i;
+    double x, pi, sum = 0.0;
+
+    step = 1.0 / (double)num_steps;
+
+    for (i = 0; i < num_steps; i++) {
+        x = (i + 0.5) * step;
+        sum += 4.0 / (1.0 + x * x);
+    }
+
+    pi = step * sum;
+
+    printf("Pi = %f\n", pi);
+
+    return 0;
+}
+4. Pi Calculation (Parallel SPMD Version)
+#include <stdio.h>
+#include <omp.h>
+
+static long num_steps = 100000;
+double step;
+
+#define NUM_THREADS 4
+
+int main() {
+    int i, nthreads;
+    double pi, sum[NUM_THREADS];
+
+    step = 1.0 / (double)num_steps;
+
+    omp_set_num_threads(NUM_THREADS);
+
+#pragma omp parallel
+    {
+        int i, id, nthrds;
+        double x;
+
+        id = omp_get_thread_num();
+        nthrds = omp_get_num_threads();
+
+        if (id == 0)
+            nthreads = nthrds;
+
+        for (i = id, sum[id] = 0.0; i < num_steps; i += nthrds) {
+            x = (i + 0.5) * step;
+            sum[id] += 4.0 / (1.0 + x * x);
+        }
+    }
+
+    for (i = 0, pi = 0.0; i < nthreads; i++) {
+        pi += sum[i] * step;
+    }
+
+    printf("Pi = %f\n", pi);
+
+    return 0;
+}
+5. Pi Calculation (Array Padding Version)
+#include <stdio.h>
+#include <omp.h>
+
+static long num_steps = 100000;
+double step;
+
+#define PAD 8
+#define NUM_THREADS 4
+
+int main() {
+    int i, nthreads;
+    double pi, sum[NUM_THREADS][PAD];
+
+    step = 1.0 / (double)num_steps;
+
+    omp_set_num_threads(NUM_THREADS);
+
+#pragma omp parallel
+    {
+        int i, id, nthrds;
+        double x;
+
+        id = omp_get_thread_num();
+        nthrds = omp_get_num_threads();
+
+        if (id == 0)
+            nthreads = nthrds;
+
+        for (i = id, sum[id][0] = 0.0; i < num_steps; i += nthrds) {
+            x = (i + 0.5) * step;
+            sum[id][0] += 4.0 / (1.0 + x * x);
+        }
+    }
+
+    for (i = 0, pi = 0.0; i < nthreads; i++) {
+        pi += sum[i][0] * step;
+    }
+
+    printf("Pi = %f\n", pi);
+
+    return 0;
+}
+6. Pi Calculation (Critical Section Version)
+#include <stdio.h>
+#include <omp.h>
+
+static long num_steps = 100000;
+double step;
+
+#define NUM_THREADS 4
+
+int main() {
+    double pi = 0.0;
+    int nthreads = 0;
+
+    step = 1.0 / (double)num_steps;
+
+    omp_set_num_threads(NUM_THREADS);
+
+#pragma omp parallel
+    {
+        int i, id, nthrds;
+        double x, sum;
+
+        id = omp_get_thread_num();
+        nthrds = omp_get_num_threads();
+
+        if (id == 0)
+            nthreads = nthrds;
+
+#pragma omp barrier
+
+        for (i = id, sum = 0.0; i < num_steps; i += nthreads) {
+            x = (i + 0.5) * step;
+            sum += 4.0 / (1.0 + x * x);
+        }
+
+#pragma omp critical
+        pi += sum * step;
+    }
+
+    printf("Pi = %.15f\n", pi);
+
+    return 0;
+}
+7. Pi Calculation (Atomic Version)
+#include <stdio.h>
+#include <omp.h>
+
+static long num_steps = 100000;
+double step;
+
+#define NUM_THREADS 4
+
+int main() {
+    double pi = 0.0;
+    int nthreads = 0;
+
+    step = 1.0 / (double)num_steps;
+
+    omp_set_num_threads(NUM_THREADS);
+
+#pragma omp parallel
+    {
+        int i, id, nthrds;
+        double x, sum;
+
+        id = omp_get_thread_num();
+        nthrds = omp_get_num_threads();
+
+        if (id == 0)
+            nthreads = nthrds;
+
+#pragma omp barrier
+
+        for (i = id, sum = 0.0; i < num_steps; i += nthreads) {
+            x = (i + 0.5) * step;
+            sum += 4.0 / (1.0 + x * x);
+        }
+
+        sum *= step;
+
+#pragma omp atomic
+        pi += sum;
+    }
+
+    printf("Pi = %f\n", pi);
+
+    return 0;
+}
+8. Pi Calculation (Reduction Version)
+#include <stdio.h>
+#include <omp.h>
+
+static long num_steps = 100000;
+double step;
+
+int main() {
+    int i;
+    double x, pi, sum = 0.0;
+
+    step = 1.0 / (double)num_steps;
+
+#pragma omp parallel for private(x) reduction(+:sum)
+    for (i = 0; i < num_steps; i++) {
+        x = (i + 0.5) * step;
+        sum += 4.0 / (1.0 + x * x);
+    }
+
+    pi = step * sum;
+
+    printf("Pi = %f\n", pi);
+
+    return 0;
+}
+9. Histogram - Serial
+#include <stdio.h>
+
+#define NBUCKETS 10
+#define NVALS 100
+
+int sample(double val) {
+    return ((int)val) % NBUCKETS;
+}
+
+int main() {
+    int hist[NBUCKETS];
+    double arr[NVALS];
+    int i, ival;
+
+    for (i = 0; i < NVALS; i++) {
+        arr[i] = i * 2.5;
+    }
+
+    for (i = 0; i < NBUCKETS; i++) {
+        hist[i] = 0;
+    }
+
+    for (i = 0; i < NVALS; i++) {
+        ival = sample(arr[i]);
+        hist[ival]++;
+    }
+
+    for (i = 0; i < NBUCKETS; i++) {
+        printf("Bucket %d: %d\n", i, hist[i]);
+    }
+
+    return 0;
+}
+10. Histogram - Parallel with Simple Locks
+#include <stdio.h>
+#include <omp.h>
+
+#define NBUCKETS 10
+#define NVALS 100
+
+int sample(double val) {
+    return ((int)val) % NBUCKETS;
+}
+
+int main() {
+    omp_lock_t hist_locks[NBUCKETS];
+    int hist[NBUCKETS];
+    double arr[NVALS];
+    int i, ival;
+
+    for (i = 0; i < NVALS; i++) {
+        arr[i] = i * 2.5;
+    }
+
+    #pragma omp parallel for
+    for (i = 0; i < NBUCKETS; i++) {
+        omp_init_lock(&hist_locks[i]);
+        hist[i] = 0;
+    }
+
+    #pragma omp parallel for private(ival)
+    for (i = 0; i < NVALS; i++) {
+        ival = sample(arr[i]);
+        omp_set_lock(&hist_locks[ival]);
+        hist[ival]++;
+        omp_unset_lock(&hist_locks[ival]);
+    }
+
+    for (i = 0; i < NBUCKETS; i++) {
+        printf("Bucket %d: %d\n", i, hist[i]);
+        omp_destroy_lock(&hist_locks[i]);
+    }
+
+    return 0;
+}
+11. Runtime Library Routines
+#include <stdio.h>
+#include <omp.h>
+
+int main() {
+    int num_threads;
+
+    omp_set_dynamic(0);
+    omp_set_num_threads(omp_get_num_procs());
+
+    #pragma omp parallel
+    {
+        int id = omp_get_thread_num();
+
+        #pragma omp single
+        {
+            num_threads = omp_get_num_threads();
+        }
+
+        printf("Hello from thread %d\n", id);
+    }
+
+    printf("Total threads: %d\n", num_threads);
+
+    return 0;
+}
+
+
+
+12. Mandelbrot Area - Serial
+#include <stdio.h>
+
+#define NPOINTS 100
+#define MXITR 100
+
+struct d_complex {
+    double r;
+    double i;
+};
+
+int numoutside = 0;
+
+void testpoint(struct d_complex c) {
+    struct d_complex z;
+    int iter;
+    double temp;
+
+    z = c;
+
+    for (iter = 0; iter < MXITR; iter++) {
+        temp = (z.r * z.r) - (z.i * z.i) + c.r;
+        z.i = z.r * z.i * 2 + c.i;
+        z.r = temp;
+
+        if ((z.r * z.r + z.i * z.i) > 4.0) {
+            numoutside++;
+            break;
+        }
+    }
+}
+
+int main() {
+    int i, j;
+    struct d_complex c;
+    double area, error, eps = 1.0e-5;
+
+    numoutside = 0;
+
+    for (i = 0; i < NPOINTS; i++) {
+        for (j = 0; j < NPOINTS; j++) {
+            c.r = -2.0 + 2.5 * (double)(i) / (double)(NPOINTS) + eps;
+            c.i = 1.125 * (double)(j) / (double)(NPOINTS) + eps;
+            testpoint(c);
+        }
+    }
+
+    area = 2.0 * 2.5 * 1.125 *
+           (double)(NPOINTS * NPOINTS - numoutside) /
+           (double)(NPOINTS * NPOINTS);
+
+    error = area / (double)NPOINTS;
+
+    printf("Serial Area = %f, Error = %f\n", area, error);
+
+    return 0;
+}
+13. Mandelbrot Area - Parallel with Firstprivate & Atomic
+#include <stdio.h>
+#include <omp.h>
+
+#define NPOINTS 100
+#define MXITR 100
+
+struct d_complex {
+    double r;
+    double i;
+};
+
+int numoutside = 0;
+
+void testpoint(struct d_complex c) {
+    struct d_complex z;
+    int iter;
+    double temp;
+
+    z = c;
+
+    for (iter = 0; iter < MXITR; iter++) {
+        temp = (z.r * z.r) - (z.i * z.i) + c.r;
+        z.i = z.r * z.i * 2 + c.i;
+        z.r = temp;
+
+        if ((z.r * z.r + z.i * z.i) > 4.0) {
+            #pragma omp atomic
+            numoutside++;
+            break;
+        }
+    }
+}
+
+int main() {
+    int i, j;
+    struct d_complex c;
+    double area, error, eps = 1.0e-5;
+
+    numoutside = 0;
+
+    #pragma omp parallel for default(shared) private(c, j) firstprivate(eps)
+    for (i = 0; i < NPOINTS; i++) {
+        for (j = 0; j < NPOINTS; j++) {
+            c.r = -2.0 + 2.5 * (double)(i) / (double)(NPOINTS) + eps;
+            c.i = 1.125 * (double)(j) / (double)(NPOINTS) + eps;
+            testpoint(c);
+        }
+    }
+
+    area = 2.0 * 2.5 * 1.125 *
+           (double)(NPOINTS * NPOINTS - numoutside) /
+           (double)(NPOINTS * NPOINTS);
+
+    error = area / (double)NPOINTS;
+
+    printf("Parallel Area = %f, Error = %f\n", area, error);
+
+    return 0;
+}
+14. Linked List Traversal - Serial
+#include <stdio.h>
+#include <stdlib.h>
+
+struct node {
+    int data;
+    struct node* next;
+};
+
+void processwork(struct node* p) {
+    printf("Processed %d\n", p->data);
+}
+
+int main() {
+    struct node* head = (struct node*)malloc(sizeof(struct node));
+
+    head->data = 10;
+    head->next = NULL;
+
+    struct node* p = head;
+
+    while (p != NULL) {
+        processwork(p);
+        p = p->next;
+    }
+
+    free(head);
+
+    return 0;
+}
+15. Linked List Traversal - Parallel using Array
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+struct node {
+    int data;
+    struct node* next;
+};
+
+void processwork(struct node* p) {
+    printf("Processed %d by Thread %d\n",
+           p->data,
+           omp_get_thread_num());
+}
+
+int main() {
+    struct node* head = (struct node*)malloc(sizeof(struct node));
+
+    head->data = 10;
+    head->next = NULL;
+
+    struct node* p = head;
+    int count = 1;
+    struct node* parr[1];
+    int i;
+
+    for(i = 0; i < count; i++) {
+        parr[i] = p;
+        p = p->next;
+    }
+
+    #pragma omp parallel
+    {
+        #pragma omp for schedule(static,1)
+        for(i = 0; i < count; i++) {
+            processwork(parr[i]);
+        }
+    }
+
+    free(head);
+
+    return 0;
+}
+
+
+16. Linked List Traversal - Parallel using std::vector (C++)
+#include <iostream>
+#include <vector>
+#include <omp.h>
+
+struct node {
+    int data;
+    node* next;
+};
+
+void processwork(node* p) {
+    printf("Processed %d by Thread %d\n", p->data, omp_get_thread_num());
+}
+
+int main() {
+    node* head = new node{10, nullptr};
+    node* p;
+
+    std::vector<node *> nodelist;
+
+    for (p = head; p != nullptr; p = p->next) {
+        nodelist.push_back(p);
+    }
+
+    int j = (int)nodelist.size();
+
+    #pragma omp parallel for schedule(static,1)
+    for (int i = 0; i < j; ++i) {
+        processwork(nodelist[i]);
+    }
+
+    delete head;
+
+    return 0;
+}
+17. Fibonacci with Tasks - Serial
+#include <stdio.h>
+
+int fib(int n) {
+    int x, y;
+
+    if (n < 2) return n;
+
+    x = fib(n - 1);
+    y = fib(n - 2);
+
+    return x + y;
+}
+
+int main() {
+    int n = 15;
+    int result = fib(n);
+
+    printf("Serial Fib(%d) = %d\n", n, result);
+
+    return 0;
+}
+18. Fibonacci with Tasks - Parallel
+#include <stdio.h>
+#include <omp.h>
+
+int fib(int n) {
+    int x, y;
+
+    if (n < 2) return n;
+
+    #pragma omp task shared(x)
+    x = fib(n - 1);
+
+    #pragma omp task shared(y)
+    y = fib(n - 2);
+
+    #pragma omp taskwait
+
+    return x + y;
+}
+
+int main() {
+    int n = 15;
+    int result;
+
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            result = fib(n);
+        }
+    }
+
+    printf("Parallel Fib(%d) = %d\n", n, result);
+
+    return 0;
+}
+19. Linked List with Tasks - Parallel
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+typedef struct Element {
+    int data;
+    struct Element *next;
+} Element;
+
+typedef struct List {
+    Element *first;
+} List;
+
+void process(Element *e) {
+    printf("Processing node with data: %d by Thread %d\n",
+           e->data,
+           omp_get_thread_num());
+}
+
+int main() {
+    List *ml = (List*)malloc(sizeof(List));
+    Element *head = (Element*)malloc(sizeof(Element));
+
+    head->data = 100;
+    head->next = NULL;
+    ml->first = head;
+
+    Element *e;
+
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            for(e = ml->first; e; e = e->next) {
+                #pragma omp task firstprivate(e)
+                {
+                    process(e);
+                }
+            }
+        }
+    }
+
+    free(head);
+    free(ml);
+
+    return 0;
+}
